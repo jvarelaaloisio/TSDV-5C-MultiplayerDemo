@@ -19,11 +19,11 @@ public class NetworkScreen : MonoBehaviourSingleton<NetworkScreen>
 
     void OnConnectBtnClick()
     {
-        IPAddress ipAddress = IPAddress.Parse(addressInputField.text);
+        IPAddress ipAddress =
+            string.IsNullOrWhiteSpace(addressInputField.text)? IPAddress.Parse("127.0.0.1") : IPAddress.Parse(addressInputField.text);
         int port = System.Convert.ToInt32(portInputField.text);
 
         NetworkManager.Instance.StartClient(ipAddress, port);
-        
         SwitchToChatScreen();
     }
 
