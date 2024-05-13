@@ -12,7 +12,7 @@ namespace UI
         protected override void Initialize()
         {
             inputMessage.onEndEdit.AddListener(OnEndEdit);
-
+            
             this.gameObject.SetActive(false);
 
             if (!NetworkManager.Instance.onReceiveMessageHandlers.TryAdd(MessageType.Console, HandleReceiveMessage))
