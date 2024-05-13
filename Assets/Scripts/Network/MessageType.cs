@@ -1,6 +1,11 @@
-﻿public enum MessageType
+﻿namespace Network
 {
-    HandShake = -1,
-    Console = 0,
-    Position = 1
+    public enum MessageType
+    {
+        HandshakeRequest = 0,
+        HandshakeResponse,
+        ClientListUpdate,
+        Console,
+        Position,
+    }
 }

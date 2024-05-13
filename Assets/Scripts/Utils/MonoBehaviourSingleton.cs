@@ -22,7 +22,7 @@ public class MonoBehaviourSingleton<T> : MonoBehaviour where T : MonoBehaviourSi
 
     }
 
-    private void Awake()
+    protected virtual void Awake()
     {
         if (instance != null)
             Destroy(this.gameObject);

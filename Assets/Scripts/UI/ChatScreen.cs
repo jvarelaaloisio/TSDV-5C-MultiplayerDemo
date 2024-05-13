@@ -1,70 +1,65 @@
-﻿using System;
-using System.Net;
+﻿using Network;
+using UnityEngine;
 using UnityEngine.UI;
 
-public class ChatScreen : MonoBehaviourSingleton<ChatScreen>
+namespace UI
 {
-    public Text messages;
-    public InputField inputMessage;
-
-    protected override void Initialize()
+    public class ChatScreen : MonoBehaviourSingleton<ChatScreen>
     {
-        inputMessage.onEndEdit.AddListener(OnEndEdit);
+        public Text messages;
+        public InputField inputMessage;
 
-        this.gameObject.SetActive(false);
-
-        NetworkManager.Instance.OnReceiveEvent += OnReceiveDataEvent;
-        NetworkManager.Instance.onNewClientConnected += HandleNewNewClientConnected;
-    }
-
-    private void HandleNewNewClientConnected(int clientId)
-    {
-        //Broadcast "new client added"
-        CatchUpClient(clientId);
-    }
-
-    private void CatchUpClient(int clientId)
-    {
-        NetworkManager.Instance.SendToClient(new NetConsoleMessage(messages.text).Serialize(), clientId);
-    }
-
-    void OnReceiveDataEvent(byte[] data, IPEndPoint ep)
-    {
-        var messageType = (MessageType)BitConverter.ToInt32(data, 0);
-        switch (messageType)
+        protected override void Initialize()
         {
-            case MessageType.Console:
-                var message = new NetConsoleMessage("");
-                messages.text += message.Deserialize(data);
-                break;
+            inputMessage.onEndEdit.AddListener(OnEndEdit);
+
+            this.gameObject.SetActive(false);
+
+            if (!NetworkManager.Instance.onReceiveMessageHandlers.TryAdd(MessageType.Console, HandleReceiveMessage))
+                NetworkManager.Instance.onReceiveMessageHandlers[MessageType.Console] += HandleReceiveMessage;
+            NetworkManager.Instance.onNewClientConnected += HandleNewNewClientConnected;
         }
 
-        if (NetworkManager.IsServer)
+        private void HandleReceiveMessage(MessageType _, byte[] data)
         {
-            NetworkManager.Instance.Broadcast(data);
+            var message = new NetConsoleMessage();
+            message.TryDeserializeIntoSelf(data);
+            messages.text += message.Data;
         }
-    }
 
-    void OnEndEdit(string str)
-    {
-        if (inputMessage.text != "")
+        private void HandleNewNewClientConnected(int clientId)
         {
-            var message = new NetConsoleMessage(inputMessage.text + System.Environment.NewLine);
-            if (NetworkManager.IsServer)
+            //Broadcast "new client added"
+            CatchUpClient(clientId);
+        }
+
+        private void CatchUpClient(int clientId)
+        {
+            NetworkManager.Instance.TrySendToClient(new NetConsoleMessage{Data = messages.text}.GetBytes(), clientId);
+        }
+
+        private void OnEndEdit(string str)
+        {
+            if (inputMessage.text != "")
             {
-                NetworkManager.Instance.Broadcast(message.Serialize());
-                messages.text += message.data;
-            }
-            else
-            {
-                NetworkManager.Instance.SendToServer(message.Serialize());
+                var message = new NetConsoleMessage {Data = inputMessage.text + System.Environment.NewLine};
+                if (!NetworkManager.TryGetLocalClient(out var localClient))
+                {
+                    Debug.LogError($"{name}: {nameof(localClient)} not found!");
+                    return;
+                }
+                if (NetworkManager.IsServer)
+                    NetworkManager.Instance
+                                  .Broadcast(message.Serialized(localClient.GetNextMessageId(MessageType.Console)));
+                else
+                    NetworkManager.Instance.SendToServer(message.Serialized(localClient.GetNextMessageId(MessageType.Console)));
+
+                inputMessage.ActivateInputField();
+                inputMessage.Select();
+                inputMessage.text = "";
             }
 
-            inputMessage.ActivateInputField();
-            inputMessage.Select();
-            inputMessage.text = "";
         }
 
     }
-
 }

@@ -2,44 +2,36 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class NetVector3 : IMessage<UnityEngine.Vector3>
+namespace Network
 {
-    private static ulong lastMsgID = 0;
-    private Vector3 data;
-
-    public NetVector3(Vector3 data)
+    public class NetVector3 : NetMessage<Vector3>
     {
-        this.data = data;
+        protected override bool TryDeserializeIntoSelfInternal(byte[] message)
+        {
+            if (message.Length < sizeof(float) * 3)
+            {
+                return false;
+            }
+            Data = new Vector3(
+                               BitConverter.ToSingle(message),
+                               BitConverter.ToSingle(message, sizeof(float)),
+                               BitConverter.ToSingle(message, sizeof(float))
+                              );
+            return true;
+        }
+
+        public override MessageType GetMessageType()
+        {
+            return MessageType.Position;
+        }
+
+        protected override byte[] GetBytesInternal(List<byte> currentData)
+        {
+            currentData.AddRange(BitConverter.GetBytes(Data.x));
+            currentData.AddRange(BitConverter.GetBytes(Data.y));
+            currentData.AddRange(BitConverter.GetBytes(Data.z));
+
+            return currentData.ToArray();
+        }
     }
-
-    public Vector3 Deserialize(byte[] message)
-    {
-        Vector3 outData;
-
-        outData.x = BitConverter.ToSingle(message, 8);
-        outData.y = BitConverter.ToSingle(message, 12);
-        outData.z = BitConverter.ToSingle(message, 16);
-
-        return outData;
-    }
-
-    public MessageType GetMessageType()
-    {
-        return MessageType.Position;
-    }
-
-    public byte[] Serialize()
-    {
-        List<byte> outData = new List<byte>();
-
-        outData.AddRange(BitConverter.GetBytes((int)GetMessageType()));
-        outData.AddRange(BitConverter.GetBytes(lastMsgID++));
-        outData.AddRange(BitConverter.GetBytes(data.x));
-        outData.AddRange(BitConverter.GetBytes(data.y));
-        outData.AddRange(BitConverter.GetBytes(data.z));
-
-        return outData.ToArray();
-    }
-
-    //Dictionary<Client,Dictionary<msgType,int>>
 }

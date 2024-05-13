@@ -2,58 +2,45 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using Network;
 using UnityEngine;
 
-public struct Client
+public delegate void HandleMessageDelegate(MessageType messageType, byte[] data);
+public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveNetData
 {
-    public float timeStamp;
-    public int id;
-    public IPEndPoint ipEndPoint;
+    public static IPEndPoint LocalEndPoint => (IPEndPoint)Instance.connection.LocalEndPoint;
+    public IPAddress ipAddress { get; private set; }
 
-    public Client(IPEndPoint ipEndPoint, int id, float timeStamp)
-    {
-        this.timeStamp = timeStamp;
-        this.id = id;
-        this.ipEndPoint = ipEndPoint;
-    }
-}
+    public int port { get; private set; }
 
-public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveData
-{
-    public IPAddress ipAddress
-    {
-        get; private set;
-    }
-
-    public int port
-    {
-        get; private set;
-    }
-
-    public static bool IsServer
-    {
-        get; private set;
-    }
+    public static bool IsServer{ get; private set; }
+    public static bool TryGetLocalClient(out Client client)
+        => Instance.clients_OLD.TryGetValue(LocalEndPoint, out client);
 
     public int TimeOut = 30;
-
-    public Action<byte[], IPEndPoint> OnReceiveEvent;
     
+    private UdpConnection connection;
+
+    [Obsolete]
+    private readonly Dictionary<IPEndPoint, Client> clients_OLD = new ();
+    private readonly Dictionary<int, Client> clientsById = new ();
+    private readonly Dictionary<int, IPEndPoint> ipsById = new();
+
+    public readonly Dictionary<MessageType, HandleMessageDelegate> onReceiveMessageHandlers = new();
+    public Action<byte[], IPEndPoint> OnReceiveEvent;
+
     /// <summary>
     /// When a new client connects to the server
     /// </summary>
     public event Action<int> onNewClientConnected = delegate { };
+
     public event Action<int> onClientDisconnected = delegate { };
-    
+
     /// <summary>
     /// When started client is accepted by the server
     /// </summary>
     public event Action<int> onConnectionSuccessful = delegate { };
-
-    private UdpConnection connection;
-
-    private readonly Dictionary<IPEndPoint, Client> clients = new ();
-    private readonly Dictionary<int, IPEndPoint> ipsById = new();
+    public event Action<HandshakeResponseCodes> onConnectionError = delegate { };
 
     private void Update()
     {
@@ -68,8 +55,14 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
         this.port = port;
         connection = new UdpConnection(port, this);
     }
+    
+    public void StartHost(int port, string nickname)
+    {
+        StartServer(port);
+        TryAddClientAsServer(LocalEndPoint, out _, nickname);
+    }
 
-    public void StartClient(IPAddress ip, int port)
+    public void StartClient(IPAddress ip, int port, string nickName)
     {
         IsServer = false;
 
@@ -77,96 +70,210 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
         this.ipAddress = ip;
 
         connection = new UdpConnection(ip, port, this);
-        var handShake = new NetHandShake();
-        handShake.data = (-1, -1);
-        SendToServer(handShake.Serialize());
+
+        var handShake = new NetHandshakeRequest{Data = nickName};
+        if (TryAddClient(-1, nickName))
+        {
+            SendToServer(handShake.GetBytes());
+        }
     }
 
-    public bool TryAddClient(IPEndPoint ip, int clientId)
+    //TODO: Check if this should be calling TryAddNewClient or do something to merge them both
+    public bool TryAddClient(int clientId, string nickname)
     {
-        var newClient = new Client(ip, clientId, Time.realtimeSinceStartup);
-        if (clients.TryAdd(ip, newClient))
-        {
-            ipsById.TryAdd(clientId, ip);
-            return true;
-        }
-        return false;
+        var newClient = new Client(clientId, Time.realtimeSinceStartup, nickname);
+        return clientsById.TryAdd(clientId, newClient);
+    }
+    
+    [Obsolete(nameof(TryAddClient))]
+    public bool TryAddClient_OLD(IPEndPoint ip, int clientId, string nickname)
+    {
+        var newClient = new Client(clientId, Time.realtimeSinceStartup, nickname);
+        if (!clients_OLD.TryAdd(ip, newClient))
+            return false;
+        ipsById.TryAdd(clientId, ip);
+        return true;
     }
 
-    public bool TryAddNewClient(IPEndPoint ip, out int newId)
+    /// <summary>
+    /// This method should only be called as server
+    /// </summary>
+    /// <param name="ip"></param>
+    /// <param name="newClient"></param>
+    /// <param name="nickname"></param>
+    /// <returns></returns>
+    public bool TryAddClientAsServer(IPEndPoint ip, out Client newClient, string nickname)
     {
-        var wasClientAlreadyAdded = clients.Any(kvp
-                                              => Equals(kvp.Value.ipEndPoint, ip));
-        if (!wasClientAlreadyAdded)
+        var alreadyHadClient = ipsById.ContainsValue(ip);
+        if (alreadyHadClient)
         {
-            Debug.Log($"Adding client: {ip.Address} ({ip.Port})");
+            Debug.LogWarning($"{name}: Client {ip.Address} ({ip.Port}) was already added!");
 
-            newId = clients.Count > 0 ? clients.Last().Value.id + 1 : 0;
-
-            var newClient = new Client(ip, newId, Time.realtimeSinceStartup);
-            clients.Add(ip, newClient);
-            ipsById.TryAdd(newId, ip);
-            return true;
+            newClient = default;
+            return false;
         }
-        Debug.LogWarning($"{name}: Client {ip.Address} ({ip.Port}) was already added!");
 
-        newId = -1;
-        return false;
+        Debug.Log($"Adding client: {ip.Address} ({ip.Port})");
+
+        var newId = clientsById.Any()
+                        ? clientsById.Keys.Max() + 1
+                        : 0;
+
+        newClient = new Client(newId, Time.realtimeSinceStartup, nickname);
+        clientsById.Add(newId, newClient);
+        ipsById.TryAdd(newId, ip);
+        return true;
     }
 
     private void RemoveClient(IPEndPoint ip)
     {
-        if (clients.ContainsKey(ip))
+        if (clients_OLD.ContainsKey(ip))
         {
             Debug.Log("Removing client: " + ip.Address);
-            clients.Remove(ip);
+            clients_OLD.Remove(ip);
         }
     }
 
     public void OnReceiveData(byte[] data, IPEndPoint ip)
     {
-        var messageType = (MessageType)BitConverter.ToInt32(data, 0);
+        var messageType = NetMessage.ReadType(data);
+        var flags = NetMessage.ReadFlags(data);
         switch (messageType)
         {
-            //A new client wants to connect and I'm server
-            case MessageType.HandShake when IsServer:
+            case MessageType.HandshakeRequest when IsServer:
             {
-                if(TryAddNewClient(ip, out var clientId))
-                {
-                    var acceptedConnectionMessage = new NetHandShake();
-                    var acceptedConnectionData = acceptedConnectionMessage.Serialize();
-                    connection.Send(acceptedConnectionData, ip);
-                    onNewClientConnected(clientId);
-                }
-                else
-                    Debug.LogError($"{name}: Couldn't add new client!" +
-                                   $"\nip: {ip.Address} ({ip.Port})");
+                HandleHandshakeRequestAsServer(ip, data);
                 break;
             }
-            //I connected as client and server accepted
-            case MessageType.HandShake:
+            case MessageType.HandshakeResponse:
             {
-                var newClientMessage = new NetHandShake();
-                newClientMessage.data = newClientMessage.Deserialize(data);
-                var myClientId = newClientMessage.data.clientId;
-                TryAddClient(ip, myClientId);
-                onConnectionSuccessful(myClientId);
+                if (IsServer)
+                {
+                    Debug.LogError($"{name}: Server received a {nameof(MessageType.HandshakeResponse)} from {ip.Address}({ip.Port})." +
+                                   $"\nThis is not allowed!");
+                    break;
+                }
+                HandleHandshakeResponseAsClient(data, ip);
+                break;
+            }
+            //This only should happen as client
+            case MessageType.ClientListUpdate when !IsServer:
+            {
+                var message = new NetClientListUpdate();
+                message.TryDeserializeIntoSelf(data);
+                foreach (var (clientId, nickname)
+                         in message
+                            .Data
+                            .Where(clientData => !clientsById.ContainsKey(clientData.clientId)))
+                {
+                    TryAddClient(clientId, nickname);
+                }
                 break;
             }
             default:
-                OnReceiveEvent?.Invoke(data, ip);
+            {
+                if (!clients_OLD.TryGetValue(ip, out var client))
+                {
+                    Debug.LogError($"{ip.Address}({ip.Port}) is not a subscribed client");
+                    break;
+                }
+
+                if (flags.HasFlag(MessageFlags.IsSerialized))
+                {
+                    var messageId = BitConverter.ToUInt64(data, sizeof(MessageType));
+                    var messageCount = client.GetMessageId(messageType);
+                    var isNewerThanLatestProcessedMessage = messageCount < messageId;
+                    if(isNewerThanLatestProcessedMessage)
+                    {
+                        client.SetMessageId(messageType, messageCount);
+                        ProcessMessage(data, messageType);
+                        OnReceiveEvent?.Invoke(data, ip);
+                    }
+                    else
+                        Debug.Log($"{name}: Message id ({messageId}) is older than the last one processed ({messageCount})");
+                }
+                else
+                {
+                    ProcessMessage(data, messageType);
+                    OnReceiveEvent?.Invoke(data, ip);
+                }
                 break;
+            }
         }
     }
 
-    public bool SendToClient(byte[] data, int clientId)
+    private void ProcessMessage(byte[] data, MessageType messageType)
     {
-        if (TryGetClient(clientId, out var client))
+        if(onReceiveMessageHandlers.TryGetValue(messageType, out var handler))
+            handler?.Invoke(messageType, data);
+        if(IsServer)
+            Broadcast(data);
+    }
+
+    private void HandleHandshakeRequestAsServer(IPEndPoint ip, byte[] data)
+    {
+        var request = new NetHandshakeRequest();
+        if (!request.TryDeserializeIntoSelf(data))
         {
-            connection.Send(data, client.ipEndPoint);
-            return true;
+            Debug.LogError($"{name}: Couldn't serialize handshake request from ip {ip.Address}({ip.Port})");
+            return;
         }
-        return false;
+
+        if (clientsById.Values.Any(client => client.Nickname == request.Data))
+        {
+            Debug.LogWarning($"{name}: Rejecting client with ip {ip.Address}({ip.Port}).\tReason: {HandshakeResponseCodes.DuplicatedNickname}");
+            var response = new NetHandshakeResponse{Data = (HandshakeResponseCodes.DuplicatedNickname, -1)};
+            var refusedConnectionData = response.GetBytes();
+            connection.Send(refusedConnectionData, ip);
+        }
+        else if(TryAddClientAsServer(ip, out var client, request.Data))
+        {
+            var response = new NetHandshakeResponse{Data = (HandshakeResponseCodes.Success, client.ID)};
+            var acceptedConnectionData = response.GetBytes();
+            connection.Send(acceptedConnectionData, ip);
+            onNewClientConnected(client.ID);
+            SendUpdatedClientList();
+        }
+        else
+            Debug.LogError($"{name}: Couldn't add new client!" +
+                           $"\nip: {ip.Address} ({ip.Port})");
+    }
+
+    private void SendUpdatedClientList()
+    {
+        var message = new NetClientListUpdate
+                      { Data = clients_OLD.Select(pair => (pair.Value.ID, pair.Value.Nickname)).ToArray() };
+        Broadcast(message.GetBytes());
+    }
+
+    private void HandleHandshakeResponseAsClient(byte[] data, IPEndPoint ip)
+    {
+        var handshakeResponse = new NetHandshakeResponse();
+        if (handshakeResponse.TryDeserializeIntoSelf(data))
+        {
+            if (handshakeResponse.Data.result is HandshakeResponseCodes.Success)
+            {
+                var myClientId = handshakeResponse.Data.clientId;
+                if (clients_OLD.TryGetValue(LocalEndPoint, out var localClient))
+                    localClient.ID = myClientId;
+                else
+                {
+                    clients_OLD.Add(LocalEndPoint, new Client());
+                    Debug.LogError($"Local client was not created, it currently has no name :(");
+                }
+                onConnectionSuccessful(myClientId);
+            }
+            else
+                onConnectionError(handshakeResponse.Data.result);
+        }
+    }
+
+    public bool TrySendToClient(byte[] data, int clientId)
+    {
+        if (!ipsById.TryGetValue(clientId, out var ip))
+            return false;
+        connection.Send(data, ip);
+        return true;
     }
 
     public void SendToServer(byte[] data)
@@ -176,28 +283,16 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveDa
 
     public void Broadcast(byte[] data)
     {
-        using (var iterator = clients.GetEnumerator())
+        foreach (var (ip, _) in clients_OLD)
         {
-            while (iterator.MoveNext())
+            var currentIpIsMine = Equals(ip, LocalEndPoint);
+            if (currentIpIsMine)
             {
-                connection.Send(data, iterator.Current.Value.ipEndPoint);
+                var messageType = NetMessage.ReadType(data);
+                ProcessMessage(data, messageType);
             }
+            else
+                connection.Send(data, ip);
         }
-    }
-
-    private bool TryGetClient(int clientId, out Client client)
-    {
-        if (ipsById.TryGetValue(clientId, out var ip))
-        {
-            if (clients.TryGetValue(ip, out client))
-                return true;
-
-            Debug.LogError($"{name}: IP ({ip}) was not found!");
-            return false;
-        }
-
-        client = default;
-        Debug.LogError($"{name}: ID ({clientId}) was not found!");
-        return false;
     }
 }
