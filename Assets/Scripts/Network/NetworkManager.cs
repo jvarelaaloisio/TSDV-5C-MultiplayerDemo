@@ -8,9 +8,10 @@ using UnityEngine;
 public delegate void HandleMessageDelegate(MessageType messageType, byte[] data);
 public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveNetData
 {
-    public static IPEndPoint LocalEndPoint => (IPEndPoint)Instance.connection.LocalEndPoint;
+    public static IPEndPoint LocalEndPoint { get; private set; }
     //TODO: To client
     public static Client LocalClient { get; private set; }
+    //TODO: To client
     public IPAddress serverIp { get; private set; }
 
     public int port { get; private set; }
@@ -54,6 +55,7 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveNe
         IsServer = true;
         this.port = port;
         connection = new UdpConnection(port, this);
+        LocalEndPoint = (IPEndPoint)connection.LocalEndPoint;
     }
     
     public void StartHost(int port, string nickname)
@@ -70,6 +72,7 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveNe
         this.serverIp = ip;
 
         connection = new UdpConnection(ip, port, this);
+        LocalEndPoint = (IPEndPoint)connection.LocalEndPoint;
 
         var handShake = new NetHandshakeRequest{Data = nickName};
         LocalClient = new Client(-1, Time.time, nickName);
