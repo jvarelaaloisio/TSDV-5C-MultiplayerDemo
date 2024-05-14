@@ -13,7 +13,8 @@ namespace Debugging
         [SerializeField] private Color errorColor = new(.75f, .25f, .25f);
         [SerializeField] private Color assertColor = Color.magenta;
         [SerializeField] private Color exceptionColor = Color.red;
-        
+
+        [SerializeField] private bool shouldDebugLogTypes = false;
         private ILogHandler _unityLoggerLOGHandler;
 
         private void OnEnable()
@@ -26,11 +27,14 @@ namespace Debugging
             _unityLoggerLOGHandler = Debug.unityLogger.logHandler;
             Debug.unityLogger.logHandler = this;
 #if UNITY_EDITOR
-            Debug.Log($"log");
-            Debug.LogWarning($"warning");
-            Debug.LogError($"error");
-            Debug.LogException(new Exception("exception"));
-            Debug.LogAssertion($"assertion");
+            if (shouldDebugLogTypes)
+            {
+                Debug.Log($"log");
+                Debug.LogWarning($"warning");
+                Debug.LogError($"error");
+                Debug.LogException(new Exception("exception"));
+                Debug.LogAssertion($"assertion");
+            }
 #endif
         }
         
