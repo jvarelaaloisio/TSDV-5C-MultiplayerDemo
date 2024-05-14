@@ -25,7 +25,6 @@ namespace Network
 
         public void SetMessageId(MessageType messageType, ulong messageCount)
         {
-
             if (MessageCounters.TryGetValue(messageType, out var counter))
                 counter.Value = messageCount;
             else

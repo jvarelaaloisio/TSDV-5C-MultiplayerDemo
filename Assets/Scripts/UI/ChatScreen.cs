@@ -43,16 +43,11 @@ namespace UI
             if (inputMessage.text != "")
             {
                 var message = new NetConsoleMessage {Data = inputMessage.text + System.Environment.NewLine};
-                if (!NetworkManager.TryGetLocalClient(out var localClient))
-                {
-                    Debug.LogError($"{name}: {nameof(localClient)} not found!");
-                    return;
-                }
                 if (NetworkManager.IsServer)
                     NetworkManager.Instance
-                                  .Broadcast(message.Serialized(localClient.GetNextMessageId(MessageType.Console)));
+                                  .Broadcast(message.Serialized(NetworkManager.LocalClient.GetNextMessageId(MessageType.Console)));
                 else
-                    NetworkManager.Instance.SendToServer(message.Serialized(localClient.GetNextMessageId(MessageType.Console)));
+                    NetworkManager.Instance.SendToServer(message.Serialized(NetworkManager.LocalClient.GetNextMessageId(MessageType.Console)));
 
                 inputMessage.ActivateInputField();
                 inputMessage.Select();

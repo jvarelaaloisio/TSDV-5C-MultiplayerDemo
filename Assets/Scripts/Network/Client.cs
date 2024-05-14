@@ -5,6 +5,7 @@ namespace Network
 {
     public struct Client
     {
+        public const int InvalidId = -1;
         public float timeStamp;
         private readonly MessageIdDictionary _messageIdDictionary;
         public int ID { get; set; }

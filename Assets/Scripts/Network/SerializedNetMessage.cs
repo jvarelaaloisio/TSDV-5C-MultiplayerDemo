@@ -3,13 +3,13 @@ using System.Collections.Generic;
 
 namespace Network
 {
-    public abstract class SerializedNetMessage<T> : NetMessage<T>
+    public abstract class SerializedNetMessage : NetMessage
     {
         public byte[] Serialized(ulong messageId)
         {
             var outData = new List<byte>();
 
-            outData.AddRange(BitConverter.GetBytes((int)GetMessageType()));
+            header.Write(outData);
             outData.AddRange(BitConverter.GetBytes(messageId));
             return GetBytesInternal(outData);
         }
@@ -19,5 +19,14 @@ namespace Network
             var messageId = getMessageId(GetMessageType());
             return Serialized(messageId);
         }
+
+        public static ulong ReadMessageId(byte[] data)
+        {
+            return BitConverter.ToUInt64(data, MessageHeader.Size);
+        }
+    }
+    public abstract class SerializedNetMessage<T> : SerializedNetMessage
+    {
+        public T Data { get; set; }
     }
 }

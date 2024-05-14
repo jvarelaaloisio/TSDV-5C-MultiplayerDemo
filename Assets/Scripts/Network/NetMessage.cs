@@ -5,32 +5,30 @@ namespace Network
 {
     public abstract class NetMessage
     {
-        private const int MessageHeaderSize = sizeof(int) * 2;
-        public MessageFlags Flags { get; set; } = MessageFlags.None;
+        protected readonly MessageHeader header = new();
 
         public abstract MessageType GetMessageType();
-
         public byte[] GetBytes()
         {
+            header.Type = GetMessageType();
             var outData = new List<byte>();
-
-            outData.AddRange(BitConverter.GetBytes((int)GetMessageType()));
-            outData.AddRange(BitConverter.GetBytes((int)Flags));
+            header.Write(outData);
             return GetBytesInternal(outData);
         }
-        
+
         protected abstract byte[] GetBytesInternal(List<byte> currentData);
 
         public bool TryDeserializeIntoSelf(byte[] message)
         {
-            return message.Length >= MessageHeaderSize
-                   && TryDeserializeIntoSelfInternal(message[MessageHeaderSize..]);
+            return message.Length >= MessageHeader.Size
+                   && TryDeserializeIntoSelfInternal(message[MessageHeader.Size..]);
         }
 
         protected abstract bool TryDeserializeIntoSelfInternal(byte[] message);
 
-        public static MessageFlags ReadFlags(byte[] data) => (MessageFlags)BitConverter.ToInt32(data, sizeof(int));
         public static MessageType ReadType(byte[] data) => (MessageType)BitConverter.ToInt32(data);
+        public static MessageFlags ReadFlags(byte[] data) => (MessageFlags)BitConverter.ToInt32(data, sizeof(int) * 1);
+        public static int ReadClientId(byte[] data) => (int)BitConverter.ToInt32(data, sizeof(int) * 2);
     }
     public abstract class NetMessage<T> : NetMessage
     {
