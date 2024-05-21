@@ -74,7 +74,7 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveNe
         connection = new UdpConnection(ip, port, this);
         LocalEndPoint = (IPEndPoint)connection.LocalEndPoint;
 
-        var handShake = new NetHandshakeRequest{Data = nickName};
+        var handShake = new NetHandshakeRequest{Data = nickName };
         LocalClient = new Client(-1, Time.time, nickName);
         SendToServer(handShake.GetBytes());
     }
@@ -153,6 +153,7 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveNe
             }
             case MessageType.HandshakeResponse:
             {
+                //TODO: To server
                 if (IsServer)
                 {
                     Debug.LogError($"{name}: Server received a {nameof(MessageType.HandshakeResponse)} from {ip.Address}({ip.Port})." +
@@ -162,7 +163,7 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveNe
                 HandleHandshakeResponseAsClient(data, ip);
                 break;
             }
-            //This only should happen as client
+            //TODO: To client
             case MessageType.ClientListUpdate when !IsServer:
             {
                 var message = new NetClientListUpdate();
@@ -178,8 +179,8 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveNe
             }
             default:
             {
-                //As server
-                if (!ipsById.ContainsValue(ip))
+                //TODO: To server
+                if (IsServer && !ipsById.ContainsValue(ip))
                 {
                     Debug.LogError($"{ip.Address}({ip.Port}) is not a subscribed client");
                     break;
@@ -273,13 +274,6 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveNe
             {
                 var myClientId = handshakeResponse.Data.clientId;
                 LocalClient = new Client(myClientId, LocalClient.timeStamp, LocalClient.Nickname);
-                if (clientsById.TryGetValue(Client.InvalidId, out var localClient))
-                    localClient.ID = myClientId;
-                else
-                {
-                    clientsById.Add(myClientId, new Client());
-                    Debug.LogError($"Local client was not created, it currently has no name :(");
-                }
                 onConnectionSuccessful(myClientId);
             }
             else
@@ -308,7 +302,6 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveNe
             if (currentIpIsMine)
             {
                 var messageType = NetMessage.ReadType(data);
-                ProcessMessage(data, messageType);
             }
             else
                 connection.Send(data, ip);

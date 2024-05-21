@@ -14,7 +14,9 @@ namespace Debugging
         [SerializeField] private Color assertColor = Color.magenta;
         [SerializeField] private Color exceptionColor = Color.red;
 
+#if UNITY_EDITOR
         [SerializeField] private bool shouldDebugLogTypes = false;
+#endif
         private ILogHandler _unityLoggerLOGHandler;
 
         private void OnEnable()
@@ -37,7 +39,11 @@ namespace Debugging
             }
 #endif
         }
-        
+        private void OnDisable()
+        {
+            Debug.unityLogger.logHandler = null;
+        }
+
         [HideInCallstack]
         public void LogFormat(LogType logType, Object context, string format, params object[] args)
         {

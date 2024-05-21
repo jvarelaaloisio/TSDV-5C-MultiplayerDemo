@@ -31,6 +31,19 @@ namespace UI
                 Debug.LogError($"{name}: {nameof(inputFieldPrefab)} is null!");
         }
 
+        private void OnEnable()
+        {
+            NetworkManager.Instance.onConnectionSuccessful += HandleConnectionSuccessful;
+            NetworkManager.Instance.onConnectionError += HandleConnectionError;
+        }
+        private void OnDisable()
+        {
+            if (NetworkManager.Instance == null)
+                return;
+            NetworkManager.Instance.onConnectionSuccessful -= HandleConnectionSuccessful;
+            NetworkManager.Instance.onConnectionError -= HandleConnectionError;
+        }
+
         protected override void Initialize()
         {
             if (buttonPrefab)
@@ -79,13 +92,12 @@ namespace UI
             int port = System.Convert.ToInt32(_portInputField.text);
             string nickName = _nickNameInputField.text;
 
-            NetworkManager.Instance.onConnectionSuccessful += HandleConnectionSuccessful;
-            NetworkManager.Instance.onConnectionError += HandleConnectionError;
             NetworkManager.Instance.StartClient(ipAddress, port, nickName);
         }
 
-        private void HandleConnectionSuccessful(int obj)
+        private void HandleConnectionSuccessful(int clientId)
         {
+            Debug.Log($"{name}: Connected as client. ID: {clientId}");
             SwitchToChatScreen();
         }
 
@@ -103,7 +115,11 @@ namespace UI
         
         private void HandleStartHostBtnClick()
         {
-            int port = System.Convert.ToInt32(_portInputField.text);
+            if (!int.TryParse(_portInputField.text, out var port))
+            {
+                Debug.LogError($"{name}: port is invalid");
+                return;
+            }
             string nickName = _nickNameInputField.text;
             NetworkManager.Instance.StartHost(port, nickName);
             SwitchToChatScreen();
