@@ -85,16 +85,6 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveNe
         var newClient = new Client(clientId, Time.realtimeSinceStartup, nickname);
         return clientsById.TryAdd(clientId, newClient);
     }
-    
-    [Obsolete(nameof(TryAddClient))]
-    public bool TryAddClient_OLD(IPEndPoint ip, int clientId, string nickname)
-    {
-        var newClient = new Client(clientId, Time.realtimeSinceStartup, nickname);
-        if (!clients_OLD.TryAdd(ip, newClient))
-            return false;
-        ipsById.TryAdd(clientId, ip);
-        return true;
-    }
 
     /// <summary>
     /// This method should only be called as server
