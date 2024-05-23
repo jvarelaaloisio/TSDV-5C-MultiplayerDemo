@@ -6,13 +6,19 @@ namespace Network
     public class MessageHeader
     {
         public const int Size = sizeof(MessageFlags) + sizeof(int) + sizeof(MessageType);
-        public MessageFlags Flags { get; set; } = MessageFlags.None;
-        public int ClientId { get; set; } = Client.InvalidId;
-        public MessageType Type { get; set; } = MessageType.Invalid;
+        public MessageFlags Flags { get; set; }
+        public int ClientId { get; set; }
 
-        internal void Write(List<byte> outData)
+        public MessageHeader(int clientId,
+            MessageFlags flags = MessageFlags.None)
         {
-            outData.AddRange(BitConverter.GetBytes((int)Type));
+            ClientId = clientId;
+            Flags = flags;
+        }
+
+        internal void Write(List<byte> outData, MessageType type)
+        {
+            outData.AddRange(BitConverter.GetBytes((int)type));
             outData.AddRange(BitConverter.GetBytes((int)Flags));
             outData.AddRange(BitConverter.GetBytes((int)ClientId));
         }

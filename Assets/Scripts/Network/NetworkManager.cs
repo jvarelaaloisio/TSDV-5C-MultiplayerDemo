@@ -24,7 +24,8 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveNe
 
     [Obsolete]
     private readonly Dictionary<IPEndPoint, Client> clients_OLD = new ();
-    private readonly Dictionary<int, Client> clientsById = new ();
+
+    public Dictionary<int, Client> ClientsById { get; } = new();
     private readonly Dictionary<int, IPEndPoint> ipsById = new();
 
     public readonly Dictionary<MessageType, HandleMessageDelegate> onReceiveMessageHandlers = new();
@@ -61,7 +62,8 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveNe
     public void StartHost(int port, string nickname)
     {
         StartServer(port);
-        TryAddClientAsServer(LocalEndPoint, out _, nickname);
+        TryAddClientAsServer(LocalEndPoint, out var localClient, nickname);
+        LocalClient = localClient;
     }
 
     public void StartClient(IPAddress ip, int port, string nickName)
@@ -74,16 +76,16 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveNe
         connection = new UdpConnection(ip, port, this);
         LocalEndPoint = (IPEndPoint)connection.LocalEndPoint;
 
-        var handShake = new NetHandshakeRequest{Data = nickName };
-        LocalClient = new Client(-1, Time.time, nickName);
-        SendToServer(handShake.GetBytes());
+        var handShake = new SerializedNetHandshakeRequest{Data = nickName };
+        LocalClient = new Client(Client.InvalidId, Time.time, nickName);
+        SendToServer(handShake.GetBytes(new MessageHeader(Client.InvalidId)));
     }
 
     //TODO: Check if this should be calling TryAddNewClient or do something to merge them both
     public bool TryAddClient(int clientId, string nickname)
     {
         var newClient = new Client(clientId, Time.realtimeSinceStartup, nickname);
-        return clientsById.TryAdd(clientId, newClient);
+        return ClientsById.TryAdd(clientId, newClient);
     }
 
     /// <summary>
@@ -106,22 +108,22 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveNe
 
         Debug.Log($"Adding client: {ip.Address} ({ip.Port})");
 
-        var newId = clientsById.Any()
-                        ? clientsById.Keys.Max() + 1
+        var newId = ClientsById.Any()
+                        ? ClientsById.Keys.Max() + 1
                         : 0;
 
         newClient = new Client(newId, Time.realtimeSinceStartup, nickname);
-        clientsById.Add(newId, newClient);
+        ClientsById.Add(newId, newClient);
         ipsById.TryAdd(newId, ip);
         return true;
     }
 
     private void RemoveClient(int id)
     {
-        if (clientsById.ContainsKey(id))
+        if (ClientsById.ContainsKey(id))
         {
             Debug.Log("Removing client: " + id);
-            clientsById.Remove(id);
+            ClientsById.Remove(id);
         }
     }
 
@@ -161,7 +163,7 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveNe
                 foreach (var (clientId, nickname)
                          in message
                             .Data
-                            .Where(clientData => !clientsById.ContainsKey(clientData.clientId)))
+                            .Where(clientData => !ClientsById.ContainsKey(clientData.clientId)))
                 {
                     TryAddClient(clientId, nickname);
                 }
@@ -184,7 +186,7 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveNe
                         Debug.LogError($"{name}: {nameof(clientId)} is invalid!");
                         break;
                     }
-                    if(!clientsById.TryGetValue(clientId, out var client))
+                    if(!ClientsById.TryGetValue(clientId, out var client))
                     {
                         Debug.LogError($"{name}: Client was not added!");
                         break;
@@ -195,7 +197,11 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveNe
                     if(isNewerThanLatestProcessedMessage)
                     {
                         client.SetMessageId(messageType, messageCount);
-                        ProcessMessage(data, messageType);
+                        //TODO: To Server
+                        if (IsServer)
+                            Broadcast(data);
+                        else
+                            ProcessMessage(data, messageType);
                         OnReceiveEvent?.Invoke(data, ip);
                     }
                     else
@@ -203,7 +209,11 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveNe
                 }
                 else
                 {
-                    ProcessMessage(data, messageType);
+                    //TODO: To Server
+                    if (IsServer)
+                        Broadcast(data);
+                    else
+                        ProcessMessage(data, messageType);
                     OnReceiveEvent?.Invoke(data, ip);
                 }
                 break;
@@ -215,33 +225,31 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveNe
     {
         if(onReceiveMessageHandlers.TryGetValue(messageType, out var handler))
             handler?.Invoke(messageType, data);
-        if(IsServer)
-            Broadcast(data);
     }
 
     private void HandleHandshakeRequestAsServer(IPEndPoint ip, byte[] data)
     {
-        var request = new NetHandshakeRequest();
+        var request = new SerializedNetHandshakeRequest();
         if (!request.TryDeserializeIntoSelf(data))
         {
             Debug.LogError($"{name}: Couldn't serialize handshake request from ip {ip.Address}({ip.Port})");
             return;
         }
 
-        if (clientsById.Values.Any(client => client.Nickname == request.Data))
+        if (ClientsById.Values.Any(client => client.Nickname == request.Data))
         {
             Debug.LogWarning($"{name}: Rejecting client with ip {ip.Address}({ip.Port}).\tReason: {HandshakeResponseCodes.DuplicatedNickname}");
-            var response = new NetHandshakeResponse{Data = (HandshakeResponseCodes.DuplicatedNickname, -1)};
-            var refusedConnectionData = response.GetBytes();
+            var response = new NetHandshakeResponse{Data = (HandshakeResponseCodes.DuplicatedNickname, Client.InvalidId)};
+            var refusedConnectionData = response.GetBytes(new MessageHeader(LocalClient.ID));
             connection.Send(refusedConnectionData, ip);
         }
         else if(TryAddClientAsServer(ip, out var client, request.Data))
         {
-            var response = new NetHandshakeResponse{Data = (HandshakeResponseCodes.Success, client.ID)};
-            var acceptedConnectionData = response.GetBytes();
+            var response = new NetHandshakeResponse {Data = (HandshakeResponseCodes.Success, client.ID)};
+            var acceptedConnectionData = response.GetBytes(new MessageHeader(LocalClient.ID));
             connection.Send(acceptedConnectionData, ip);
-            onNewClientConnected(client.ID);
             SendUpdatedClientList();
+            onNewClientConnected(client.ID);
         }
         else
             Debug.LogError($"{name}: Couldn't add new client!" +
@@ -251,8 +259,8 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveNe
     private void SendUpdatedClientList()
     {
         var message = new NetClientListUpdate
-                      { Data = clientsById.Select(pair => (pair.Value.ID, pair.Value.Nickname)).ToArray() };
-        Broadcast(message.GetBytes());
+                      { Data = ClientsById.Select(pair => (pair.Value.ID, pair.Value.Nickname)).ToArray() };
+        Broadcast(message.GetBytes(new MessageHeader(LocalClient.ID)));
     }
 
     private void HandleHandshakeResponseAsClient(byte[] data, IPEndPoint ip)
@@ -292,6 +300,7 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveNe
             if (currentIpIsMine)
             {
                 var messageType = NetMessage.ReadType(data);
+                ProcessMessage(data, messageType);
             }
             else
                 connection.Send(data, ip);

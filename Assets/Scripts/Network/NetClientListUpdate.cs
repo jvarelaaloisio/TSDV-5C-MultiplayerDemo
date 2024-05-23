@@ -6,6 +6,7 @@ namespace Network
 {
     public class NetClientListUpdate : NetMessage<(int clientId, string nickname)[]>
     {
+        //TODO:Fix wrong de/serialization.
         protected override bool TryDeserializeIntoSelfInternal(byte[] message)
         {
             var clients = new List<(int clientId, string nickname)>();

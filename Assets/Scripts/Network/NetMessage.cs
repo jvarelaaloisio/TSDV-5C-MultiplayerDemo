@@ -5,14 +5,12 @@ namespace Network
 {
     public abstract class NetMessage
     {
-        protected readonly MessageHeader header = new();
-
         public abstract MessageType GetMessageType();
-        public byte[] GetBytes()
+        
+        public byte[] GetBytes(MessageHeader header)
         {
-            header.Type = GetMessageType();
             var outData = new List<byte>();
-            header.Write(outData);
+            header.Write(outData, GetMessageType());
             return GetBytesInternal(outData);
         }
 

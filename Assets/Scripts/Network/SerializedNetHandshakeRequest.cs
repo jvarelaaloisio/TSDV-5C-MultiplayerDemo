@@ -1,6 +1,6 @@
 ﻿namespace Network
 {
-    public class NetHandshakeRequest : NetString
+    public class SerializedNetHandshakeRequest : NetString
     {
         public override MessageType GetMessageType() => MessageType.HandshakeRequest;
     }

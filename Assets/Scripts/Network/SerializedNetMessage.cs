@@ -5,19 +5,29 @@ namespace Network
 {
     public abstract class SerializedNetMessage : NetMessage
     {
-        public byte[] Serialized(ulong messageId)
+        public ulong MessageId { get; private set; }
+
+        protected override bool TryDeserializeIntoSelfInternal(byte[] message)
+        {
+            if (message.Length < sizeof(long))
+                return false;
+            MessageId = BitConverter.ToUInt64(message);
+            return true;
+        }
+
+        public byte[] Serialized(ulong messageId, MessageHeader header)
         {
             var outData = new List<byte>();
 
-            header.Write(outData);
+            header.Write(outData, GetMessageType());
             outData.AddRange(BitConverter.GetBytes(messageId));
             return GetBytesInternal(outData);
         }
         
-        public byte[] Serialized(Func<MessageType, ulong> getMessageId)
+        public byte[] Serialized(Func<MessageType, ulong> getMessageId, MessageHeader header)
         {
             var messageId = getMessageId(GetMessageType());
-            return Serialized(messageId);
+            return Serialized(messageId, header);
         }
 
         public static ulong ReadMessageId(byte[] data)
