@@ -105,9 +105,7 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveNe
             newClient = default;
             return false;
         }
-
-        Debug.Log($"Adding client: {ip.Address} ({ip.Port})");
-
+        
         var newId = ClientsById.Any()
                         ? ClientsById.Keys.Max() + 1
                         : 0;
@@ -115,6 +113,8 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveNe
         newClient = new Client(newId, Time.realtimeSinceStartup, nickname);
         ClientsById.Add(newId, newClient);
         ipsById.TryAdd(newId, ip);
+        Debug.Log($"Added client: {ip.Address} ({ip.Port})" +
+                  $"\n({newClient.ID}): {newClient.Nickname}");
         return true;
     }
 
