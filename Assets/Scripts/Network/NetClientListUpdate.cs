@@ -14,20 +14,22 @@ namespace Network
             {
                 var clientId = BitConverter.ToInt32(message, i);
                 i += sizeof(int);
-                var nickName = string.Empty;
+                var nickname = string.Empty;
                 while (i < message.Length)
                 {
                     var currentChar = (char)message[i];
+                    //Gotta increase i before break :)
+                    i++;
                     if (currentChar == '\n')
                         break;
-                    nickName += currentChar;
-                    i++;
+                    nickname += currentChar;
                 }
-                clients.Add((clientId, nickName));
+                clients.Add((clientId, nickname));
             }
             Data = clients.ToArray();
             return true;
         }
+        
         public override MessageType GetMessageType()
             => MessageType.ClientListUpdate;
 
@@ -37,6 +39,7 @@ namespace Network
             {
                 currentData.AddRange(BitConverter.GetBytes(clientId));
                 currentData.AddRange(Encoding.UTF8.GetBytes(nickname));
+                currentData.Add((byte)'\n');
             }
         
             return currentData.ToArray();

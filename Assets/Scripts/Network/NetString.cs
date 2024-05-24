@@ -5,7 +5,6 @@ namespace Network
 {
     public abstract class NetString : NetMessage<string>
     {
-        
         protected override bool TryDeserializeIntoSelfInternal(byte[] message)
         {
             Data = Encoding.UTF8.GetString(message);
