@@ -22,9 +22,6 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveNe
     
     private UdpConnection connection;
 
-    [Obsolete]
-    private readonly Dictionary<IPEndPoint, Client> clients_OLD = new ();
-
     public Dictionary<int, Client> ClientsById { get; } = new();
     private readonly Dictionary<int, IPEndPoint> ipsById = new();
 
