@@ -20,6 +20,14 @@ namespace UI
             NetworkManager.Instance.onNewClientConnected += HandleNewNewClientConnected;
         }
 
+        private void OnEnable()
+        {
+            //TODO: Change to have a client
+            if(NetworkManager.LocalClient == null)
+            {
+                inputMessage.interactable = false;
+            }
+        }
         private void HandleReceiveMessage(MessageType _, byte[] data)
         {
             var message = new SerializedNetConsoleMessage();

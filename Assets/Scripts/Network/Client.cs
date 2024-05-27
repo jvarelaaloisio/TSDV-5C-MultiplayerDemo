@@ -3,12 +3,12 @@ using System.Net;
 
 namespace Network
 {
-    public struct Client
+    public class Client
     {
         public const int InvalidId = -1;
         public float timeStamp;
         private readonly MessageIdDictionary _messageIdDictionary;
-        public int ID { get; set; }
+        public int ID { get; set; } = InvalidId;
         public string Nickname { get; }
         public Dictionary<MessageType, ULongCounter> MessageCounters
         {
