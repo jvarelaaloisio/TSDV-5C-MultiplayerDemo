@@ -3,13 +3,15 @@ using System.Collections.Generic;
 
 namespace Network
 {
+    [Obsolete("Model_OBS.Network.Impl.HandshakeResponseCodes")]
     public enum HandshakeResponseCodes : short
     {
         Undef = -1,
         Success = 0,
         DuplicatedNickname = 1,
     }
-    public class NetHandshakeResponse : NetMessage<(HandshakeResponseCodes result, int clientId)>
+    [Obsolete("Model_OBS.Network.Impl.HandshakeResponse")]
+    public class NetHandshakeResponse_OBS : NetMessage_OBS<(HandshakeResponseCodes result, int clientId)>
     {
         private const int MessageSize = sizeof(HandshakeResponseCodes) + sizeof(int);
 
@@ -24,8 +26,8 @@ namespace Network
             return true;
         }
 
-        public override MessageType GetMessageType()
-            => MessageType.HandshakeResponse;
+        public override MessageType_OBS GetMessageType()
+            => MessageType_OBS.HandshakeResponse;
 
         protected override byte[] GetBytesInternal(List<byte> currentData)
         {

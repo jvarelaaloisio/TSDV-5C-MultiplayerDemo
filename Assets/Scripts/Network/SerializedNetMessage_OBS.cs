@@ -3,7 +3,8 @@ using System.Collections.Generic;
 
 namespace Network
 {
-    public abstract class SerializedNetMessage : NetMessage
+    [Obsolete("Model_OBS.Network.Serialized.SerializedMessage")]
+    public abstract class SerializedNetMessage_OBS : NetMessage_OBS
     {
         public ulong MessageId { get; private set; }
 
@@ -15,27 +16,28 @@ namespace Network
             return true;
         }
 
-        public byte[] Serialized(ulong messageId, MessageHeader header)
+        public byte[] Serialized(ulong messageId, MessageHeader_OBS headerObs)
         {
             var outData = new List<byte>();
 
-            header.Write(outData, GetMessageType());
+            headerObs.Write(outData, GetMessageType());
             outData.AddRange(BitConverter.GetBytes(messageId));
             return GetBytesInternal(outData);
         }
         
-        public byte[] Serialized(Func<MessageType, ulong> getMessageId, MessageHeader header)
+        public byte[] Serialized(Func<MessageType_OBS, ulong> getMessageId, MessageHeader_OBS headerObs)
         {
             var messageId = getMessageId(GetMessageType());
-            return Serialized(messageId, header);
+            return Serialized(messageId, headerObs);
         }
 
         public static ulong ReadMessageId(byte[] data)
         {
-            return BitConverter.ToUInt64(data, MessageHeader.Size);
+            return BitConverter.ToUInt64(data, MessageHeader_OBS.Size);
         }
     }
-    public abstract class SerializedNetMessage<T> : SerializedNetMessage
+    [Obsolete("Model_OBS.Network.Serialized.SerializedMessage")]
+    public abstract class SerializedNetMessage_OBS<T> : SerializedNetMessage_OBS
     {
         public T Data { get; set; }
     }

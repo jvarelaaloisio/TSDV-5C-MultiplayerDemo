@@ -1,35 +1,38 @@
 ﻿using System;
 using System.Collections.Generic;
+using Model.Network;
 using UnityEngine;
 
 namespace Network
 {
-    public class NetVector3 : NetMessage<Vector3>
+    //ASK: Should I keep this in unity only?
+    public class NetVector3 : Packet<Vector3>
     {
-        protected override bool TryDeserializeIntoSelfInternal(byte[] message)
+        protected override bool TryDeserializeIntoSelfInternal(byte[] data)
         {
-            if (message.Length < sizeof(float) * 3)
+            if (data.Length < sizeof(float) * 3)
             {
                 return false;
             }
-            Data = new Vector3(
-                               BitConverter.ToSingle(message),
-                               BitConverter.ToSingle(message, sizeof(float)),
-                               BitConverter.ToSingle(message, sizeof(float))
+            Payload = new Vector3(
+                               BitConverter.ToSingle(data),
+                               BitConverter.ToSingle(data, sizeof(float)),
+                               BitConverter.ToSingle(data, sizeof(float))
                               );
             return true;
         }
 
-        public override MessageType GetMessageType()
+        //TODO: Kill enum
+        public override Model.Network.PacketType GetMessageType()
         {
-            return MessageType.Position;
+            return Model.Network.PacketType.Position;
         }
 
         protected override byte[] GetBytesInternal(List<byte> currentData)
         {
-            currentData.AddRange(BitConverter.GetBytes(Data.x));
-            currentData.AddRange(BitConverter.GetBytes(Data.y));
-            currentData.AddRange(BitConverter.GetBytes(Data.z));
+            currentData.AddRange(BitConverter.GetBytes(Payload.x));
+            currentData.AddRange(BitConverter.GetBytes(Payload.y));
+            currentData.AddRange(BitConverter.GetBytes(Payload.z));
 
             return currentData.ToArray();
         }

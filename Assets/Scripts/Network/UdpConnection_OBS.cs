@@ -2,10 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
+using Network.interfaces;
 
 namespace Network
 {
-    public class UdpConnection
+    [Obsolete("Model_OBS.Network.Connections.UdpConnection")]
+    public class UdpConnection_OBS
     {
         private struct DataReceived
         {
@@ -17,13 +19,13 @@ namespace Network
         private readonly Queue<DataReceived> _dataReceivedQueue = new();
 
         object handler = new object();
-        private readonly IReceiveNetData _receiver;
+        private readonly IReceiveNetData_OBS _receiver;
 
         public event Action<(byte[] data, IPEndPoint ipEndpoint)> onReceiveData = delegate { };
     
         public EndPoint LocalEndPoint => udpClient.Client.LocalEndPoint;
     
-        public UdpConnection(int port, IReceiveNetData receiver = null)
+        public UdpConnection_OBS(int port, IReceiveNetData_OBS receiver = null)
         {
             udpClient = new UdpClient(port);
             
@@ -32,7 +34,7 @@ namespace Network
             udpClient.BeginReceive(OnReceive, null);
         }
 
-        public UdpConnection(IPAddress ip, int port, IReceiveNetData receiver = null)
+        public UdpConnection_OBS(IPAddress ip, int port, IReceiveNetData_OBS receiver = null)
         {
             udpClient = new UdpClient();
             udpClient.Connect(ip, port);

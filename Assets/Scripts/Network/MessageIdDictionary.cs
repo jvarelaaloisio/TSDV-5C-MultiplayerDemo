@@ -4,31 +4,31 @@ namespace Network
 {
     public class MessageIdDictionary
     {
-        public Dictionary<MessageType, ULongCounter> MessageCounters { get; } = new();
+        public Dictionary<Model.Network.PacketType, ULongCounter> MessageCounters { get; } = new();
 
-        public ulong GetMessageId(MessageType mt)
+        public ulong GetMessageId(Model.Network.PacketType mt)
         {
             return MessageCounters.TryGetValue(mt, out var counter)
                        ? counter.Value
                        : 0L;
         }
 
-        public ulong GetNextMessageId(MessageType messageType)
+        public ulong GetNextMessageId(Model.Network.PacketType packetTypeObs)
         {
-            if (MessageCounters.TryGetValue(messageType, out var counter))
+            if (MessageCounters.TryGetValue(packetTypeObs, out var counter))
                 return counter.GetNext;
         
-            MessageCounters.Add(messageType, new ULongCounter());
-            counter = MessageCounters[messageType];
+            MessageCounters.Add(packetTypeObs, new ULongCounter());
+            counter = MessageCounters[packetTypeObs];
             return counter.GetNext;
         }
 
-        public void SetMessageId(MessageType messageType, ulong messageCount)
+        public void SetMessageId(Model.Network.PacketType packetTypeObs, ulong messageCount)
         {
-            if (MessageCounters.TryGetValue(messageType, out var counter))
+            if (MessageCounters.TryGetValue(packetTypeObs, out var counter))
                 counter.Value = messageCount;
             else
-                MessageCounters.Add(messageType, new ULongCounter {Value = messageCount});
+                MessageCounters.Add(packetTypeObs, new ULongCounter {Value = messageCount});
         }
     }
 }

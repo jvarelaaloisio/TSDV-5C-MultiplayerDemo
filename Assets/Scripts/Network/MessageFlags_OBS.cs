@@ -3,7 +3,8 @@
 namespace Network
 {
     [Flags]
-    public enum MessageFlags
+    [Obsolete]
+    public enum MessageFlags_OBS
     {
         None = 0,
         IsSerialized,

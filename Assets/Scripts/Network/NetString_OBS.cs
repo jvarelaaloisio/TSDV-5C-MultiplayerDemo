@@ -1,16 +1,15 @@
-﻿using System.Collections.Generic;
+using System;
+using System.Collections.Generic;
 using System.Text;
 
 namespace Network
 {
-    public abstract class SerializedNetString : SerializedNetMessage<string>
+    [Obsolete("Model_OBS.Network.Impl.StringMessage")]
+    public abstract class NetString_OBS : NetMessage_OBS<string>
     {
         protected override bool TryDeserializeIntoSelfInternal(byte[] message)
         {
-            if (!base.TryDeserializeIntoSelfInternal(message))
-                return false;
-
-            Data = Encoding.UTF8.GetString(message[sizeof(long)..]);
+            Data = Encoding.UTF8.GetString(message);
             return true;
         }
 

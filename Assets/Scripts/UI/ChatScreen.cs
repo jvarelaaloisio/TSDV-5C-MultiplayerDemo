@@ -1,4 +1,6 @@
-﻿using Network;
+﻿using Model.Network;
+using Model.Network.Serialized.Impl;
+using Network;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -15,8 +17,8 @@ namespace UI
             
             this.gameObject.SetActive(false);
 
-            if (!NetworkManager.Instance.onReceiveMessageHandlers.TryAdd(MessageType.Console, HandleReceiveMessage))
-                NetworkManager.Instance.onReceiveMessageHandlers[MessageType.Console] += HandleReceiveMessage;
+            if (!NetworkManager.Instance.onReceiveMessageHandlers.TryAdd(Model.Network.PacketType.Console, HandleReceiveMessage))
+                NetworkManager.Instance.onReceiveMessageHandlers[Model.Network.PacketType.Console] += HandleReceiveMessage;
             NetworkManager.Instance.onNewClientConnected += HandleNewNewClientConnected;
         }
 
@@ -28,11 +30,11 @@ namespace UI
                 inputMessage.interactable = false;
             }
         }
-        private void HandleReceiveMessage(MessageType _, byte[] data)
+        private void HandleReceiveMessage(Model.Network.PacketType _, byte[] data)
         {
-            var message = new SerializedNetConsoleMessage();
+            var message = new SerializedConsolePacket();
             message.TryDeserializeIntoSelf(data);
-            var clientId = NetMessage.ReadClientId(data);
+            var clientId = Packet.ReadClientId(data);
             if (!NetworkManager.Instance.ClientsById.TryGetValue(clientId, out var client))
                 Debug.LogError($"{name}: client id ({clientId}) was not found!" +
                                $"\nMessage content was {message.Data}");
@@ -48,22 +50,22 @@ namespace UI
 
         private void CatchUpClient(int clientId)
         {
-            NetworkManager.Instance.TrySendToClient(new SerializedNetConsoleMessage{Data = messages.text}.GetBytes(new MessageHeader(NetworkManager.LocalClient.ID)), clientId);
+            NetworkManager.Instance.TrySendToClient(new SerializedConsolePacket{Data = messages.text}.GetBytes(new Header(NetworkManager.LocalClient.ID)), clientId);
         }
 
         private void OnEndEdit(string str)
         {
             if (inputMessage.text != "")
             {
-                var messageHeader = new MessageHeader(NetworkManager.LocalClient.ID);
-                var message = new SerializedNetConsoleMessage {Data = inputMessage.text + System.Environment.NewLine};
+                var messageHeader = new Header(NetworkManager.LocalClient.ID);
+                var message = new SerializedConsolePacket {Data = inputMessage.text + System.Environment.NewLine};
                 if (NetworkManager.IsServer)
                 {
                     NetworkManager.Instance
-                        .Broadcast(message.Serialized(NetworkManager.LocalClient.GetNextMessageId(MessageType.Console), messageHeader));
+                        .Broadcast(message.Serialized(NetworkManager.LocalClient.GetNextMessageId(Model.Network.PacketType.Console), messageHeader));
                 }
                 else
-                    NetworkManager.Instance.SendToServer(message.Serialized(NetworkManager.LocalClient.GetNextMessageId(MessageType.Console), messageHeader));
+                    NetworkManager.Instance.SendToServer(message.Serialized(NetworkManager.LocalClient.GetNextMessageId(Model.Network.PacketType.Console), messageHeader));
 
                 inputMessage.ActivateInputField();
                 inputMessage.Select();

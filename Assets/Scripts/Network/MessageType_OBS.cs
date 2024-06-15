@@ -1,6 +1,9 @@
-﻿namespace Network
+﻿using System;
+
+namespace Network
 {
-    public enum MessageType
+    [Obsolete]
+    public enum MessageType_OBS
     {
         Invalid = -1,
         HandshakeRequest = 0,

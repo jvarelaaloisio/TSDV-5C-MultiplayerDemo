@@ -1,6 +1,11 @@
+using System;
 using System.Net;
 
-public interface IReceiveNetData
+namespace Network.interfaces
 {
-    void OnReceiveData(byte[] data, IPEndPoint ipEndpoint);
+    [Obsolete]
+    public interface IReceiveNetData_OBS
+    {
+        void OnReceiveData(byte[] data, IPEndPoint ipEndpoint);
+    }
 }

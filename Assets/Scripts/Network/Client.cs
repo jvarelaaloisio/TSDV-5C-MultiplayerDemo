@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Net;
 
 namespace Network
 {
@@ -10,7 +9,7 @@ namespace Network
         private readonly MessageIdDictionary _messageIdDictionary;
         public int ID { get; set; } = InvalidId;
         public string Nickname { get; }
-        public Dictionary<MessageType, ULongCounter> MessageCounters
+        public Dictionary<Model.Network.PacketType, ULongCounter> MessageCounters
         {
             get { return _messageIdDictionary.MessageCounters; }
         }
@@ -24,18 +23,18 @@ namespace Network
             this.Nickname = nickname;
             this.ID = id;
         }
-        public ulong GetMessageId(MessageType mt)
+        public ulong GetMessageId(Model.Network.PacketType mt)
         {
             return _messageIdDictionary.GetMessageId(mt);
         }
-        public ulong GetNextMessageId(MessageType mt)
+        public ulong GetNextMessageId(Model.Network.PacketType mt)
         {
             return _messageIdDictionary.GetNextMessageId(mt);
         }
 
-        public void SetMessageId(MessageType messageType, ulong messageCount)
+        public void SetMessageId(Model.Network.PacketType packetType, ulong messageCount)
         {
-            _messageIdDictionary.SetMessageId(messageType, messageCount);
+            _messageIdDictionary.SetMessageId(packetType, messageCount);
         }
     }
 }

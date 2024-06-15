@@ -3,6 +3,7 @@ using Network;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using HandshakeResponseCodes = Model.Network.Impl.HandshakeResponseCodes;
 
 namespace UI
 {
@@ -17,12 +18,12 @@ namespace UI
         [SerializeField] private Transform inputFieldsParent;
 
         [Header("Default values")]
-        [SerializeField] private string ConnectBtnTxt = "Connect";
-        [SerializeField] private string StartSvrBtnTxt = "Start Server";
-        [SerializeField] private string StartHostBtnTxt = "Start Host";
-        [SerializeField] private string DefaultIp = "127.0.0.1";
-        [SerializeField] private int DefaultPort = 12345;
-        [SerializeField] private string DefaultServerName = "server";
+        [SerializeField] private string connectBtnTxt = "Connect";
+        [SerializeField] private string startSvrBtnTxt = "Start Server";
+        [SerializeField] private string startHostBtnTxt = "Start Host";
+        [SerializeField] private string defaultIp = "127.0.0.1";
+        [SerializeField] private int defaultPort = 12345;
+        [SerializeField] private string defaultHostName = "Host";
         [SerializeField] private string addressPlaceHolderTxt = "Enter IP Address...";
         [SerializeField] private string portPlaceHolderTxt = "Enter port...";
         [SerializeField] private string nicknamePlaceHolderTxt = "Enter nickname...";
@@ -62,16 +63,16 @@ namespace UI
             {
                 _connectBtn = Instantiate(buttonPrefab, buttonsParent);
                 _connectBtn.name = "btn_Connect";
-                _connectBtn.GetComponentInChildren<Text>().text = ConnectBtnTxt;
+                _connectBtn.GetComponentInChildren<Text>().text = connectBtnTxt;
                 _connectBtn.onClick.AddListener(HandleConnectBtnClick);
                 
                 _startServerBtn = Instantiate(buttonPrefab, buttonsParent);
                 _startServerBtn.name = "btn_StartServer";
-                _startServerBtn.GetComponentInChildren<Text>().text = StartSvrBtnTxt;
+                _startServerBtn.GetComponentInChildren<Text>().text = startSvrBtnTxt;
                 _startServerBtn.onClick.AddListener(HandleStartServerBtnClick);
                 
                 _startHostBtn = Instantiate(buttonPrefab, buttonsParent);
-                _startHostBtn.GetComponentInChildren<Text>().text = StartHostBtnTxt;
+                _startHostBtn.GetComponentInChildren<Text>().text = startHostBtnTxt;
                 _startHostBtn.name = "btn_StartHost";
                 _startHostBtn.onClick.AddListener(HandleStartHostBtnClick);
             }
@@ -100,7 +101,7 @@ namespace UI
         private void HandleConnectBtnClick()
         {
             IPAddress ipAddress = string.IsNullOrWhiteSpace(_addressInputField.text)
-                                    ? IPAddress.Parse(DefaultIp)
+                                    ? IPAddress.Parse(defaultIp)
                                     : IPAddress.Parse(_addressInputField.text);
             GetPort(out var port);
             string nickName = _nickNameInputField.text;
@@ -129,7 +130,7 @@ namespace UI
         private void HandleStartHostBtnClick()
         {
             GetPort(out var port);
-            string nickName = _nickNameInputField.text;
+            string nickName = string.IsNullOrEmpty(_nickNameInputField.text) ? defaultHostName : _nickNameInputField.text;
             NetworkManager.Instance.StartHost(port, nickName);
             SwitchToChatScreen();
         }
@@ -143,7 +144,7 @@ namespace UI
         private void GetPort(out int port)
         {
             if (!int.TryParse(_portInputField.text, out port))
-                port = DefaultPort;
+                port = defaultPort;
         }
     }
 }
