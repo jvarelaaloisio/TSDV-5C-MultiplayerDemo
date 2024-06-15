@@ -6,6 +6,8 @@ namespace Network
     public enum MessageFlags
     {
         None = 0,
-        IsSerialized = 1,
+        IsSerialized,
+        HasCheckSum,
+        IsImportant,
     }
 }

@@ -22,9 +22,6 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveNe
     
     private UdpConnection connection;
 
-    [Obsolete]
-    private readonly Dictionary<IPEndPoint, Client> clients_OLD = new ();
-
     public Dictionary<int, Client> ClientsById { get; } = new();
     private readonly Dictionary<int, IPEndPoint> ipsById = new();
 
@@ -271,7 +268,10 @@ public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveNe
             if (handshakeResponse.Data.result is HandshakeResponseCodes.Success)
             {
                 var myClientId = handshakeResponse.Data.clientId;
-                LocalClient = new Client(myClientId, LocalClient.timeStamp, LocalClient.Nickname);
+                if (LocalClient == null)
+                    Debug.LogError($"{name}: {nameof(LocalClient)} was not initialized!");
+                else
+                    LocalClient.ID = myClientId;
                 onConnectionSuccessful(myClientId);
             }
             else

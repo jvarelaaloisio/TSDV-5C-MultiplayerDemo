@@ -11,9 +11,21 @@ namespace UI
         [Header("Buttons")]
         [SerializeField] private Button buttonPrefab;
         [SerializeField] private Transform buttonsParent;
+
         [Header("Input fields")]
         [SerializeField] private InputField inputFieldPrefab;
         [SerializeField] private Transform inputFieldsParent;
+
+        [Header("Default values")]
+        [SerializeField] private string ConnectBtnTxt = "Connect";
+        [SerializeField] private string StartSvrBtnTxt = "Start Server";
+        [SerializeField] private string StartHostBtnTxt = "Start Host";
+        [SerializeField] private string DefaultIp = "127.0.0.1";
+        [SerializeField] private int DefaultPort = 12345;
+        [SerializeField] private string DefaultServerName = "server";
+        [SerializeField] private string addressPlaceHolderTxt = "Enter IP Address...";
+        [SerializeField] private string portPlaceHolderTxt = "Enter port...";
+        [SerializeField] private string nicknamePlaceHolderTxt = "Enter nickname...";
     
         private Button _connectBtn;
         private Button _startServerBtn;
@@ -50,16 +62,16 @@ namespace UI
             {
                 _connectBtn = Instantiate(buttonPrefab, buttonsParent);
                 _connectBtn.name = "btn_Connect";
-                _connectBtn.GetComponentInChildren<Text>().text = "Connect";
+                _connectBtn.GetComponentInChildren<Text>().text = ConnectBtnTxt;
                 _connectBtn.onClick.AddListener(HandleConnectBtnClick);
                 
                 _startServerBtn = Instantiate(buttonPrefab, buttonsParent);
                 _startServerBtn.name = "btn_StartServer";
-                _startServerBtn.GetComponentInChildren<Text>().text = "Start Server";
+                _startServerBtn.GetComponentInChildren<Text>().text = StartSvrBtnTxt;
                 _startServerBtn.onClick.AddListener(HandleStartServerBtnClick);
                 
                 _startHostBtn = Instantiate(buttonPrefab, buttonsParent);
-                _startHostBtn.GetComponentInChildren<Text>().text = "Start Host";
+                _startHostBtn.GetComponentInChildren<Text>().text = StartHostBtnTxt;
                 _startHostBtn.name = "btn_StartHost";
                 _startHostBtn.onClick.AddListener(HandleStartHostBtnClick);
             }
@@ -68,7 +80,7 @@ namespace UI
             {
                 _addressInputField = Instantiate(inputFieldPrefab, inputFieldsParent);
                 if (_addressInputField.placeholder is Text addressPlaceHolder)
-                    addressPlaceHolder.text = "Enter IP Address...";
+                    addressPlaceHolder.text = addressPlaceHolderTxt;
                 if (EventSystem.current)
                 {
                     var currentEventSystem = EventSystem.current;
@@ -77,19 +89,20 @@ namespace UI
                 
                 _portInputField = Instantiate(inputFieldPrefab, inputFieldsParent);
                 if (_portInputField.placeholder is Text portPlaceHolder)
-                    portPlaceHolder.text = "Enter port...";
+                    portPlaceHolder.text = portPlaceHolderTxt;
                 
                 _nickNameInputField = Instantiate(inputFieldPrefab, inputFieldsParent);
                 if (_nickNameInputField.placeholder is Text nicknamePlaceHolder)
-                    nicknamePlaceHolder.text = "Enter nickname...";
+                    nicknamePlaceHolder.text = nicknamePlaceHolderTxt;
             }
         }
 
         private void HandleConnectBtnClick()
         {
-            IPAddress ipAddress =
-                string.IsNullOrWhiteSpace(_addressInputField.text)? IPAddress.Parse("127.0.0.1") : IPAddress.Parse(_addressInputField.text);
-            int port = System.Convert.ToInt32(_portInputField.text);
+            IPAddress ipAddress = string.IsNullOrWhiteSpace(_addressInputField.text)
+                                    ? IPAddress.Parse(DefaultIp)
+                                    : IPAddress.Parse(_addressInputField.text);
+            GetPort(out var port);
             string nickName = _nickNameInputField.text;
 
             NetworkManager.Instance.StartClient(ipAddress, port, nickName);
@@ -108,18 +121,14 @@ namespace UI
 
         private void HandleStartServerBtnClick()
         {
-            int port = System.Convert.ToInt32(_portInputField.text);
+            GetPort(out var port);
             NetworkManager.Instance.StartServer(port);
             SwitchToChatScreen();
         }
         
         private void HandleStartHostBtnClick()
         {
-            if (!int.TryParse(_portInputField.text, out var port))
-            {
-                Debug.LogError($"{name}: port is invalid");
-                return;
-            }
+            GetPort(out var port);
             string nickName = _nickNameInputField.text;
             NetworkManager.Instance.StartHost(port, nickName);
             SwitchToChatScreen();
@@ -129,6 +138,12 @@ namespace UI
         {
             ChatScreen.Instance.gameObject.SetActive(true);
             this.gameObject.SetActive(false);
+        }
+
+        private void GetPort(out int port)
+        {
+            if (!int.TryParse(_portInputField.text, out port))
+                port = DefaultPort;
         }
     }
 }
