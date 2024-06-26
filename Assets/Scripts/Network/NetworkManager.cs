@@ -12,20 +12,23 @@ using UnityEngine;
 namespace Network
 {
     public delegate void HandleMessageDelegate(Model.Network.PacketType packetTypeObs, byte[] data);
+
     public class NetworkManager : MonoBehaviourSingleton<NetworkManager>, IReceiveNetData
     {
         public static IPEndPoint LocalEndPoint { get; private set; }
+
         //TODO: To client
         public static Client LocalClient { get; private set; }
+
         //TODO: To client
         public IPAddress serverIp { get; private set; }
 
         public int port { get; private set; }
 
-        public static bool IsServer{ get; private set; }
+        public static bool IsServer { get; private set; }
 
         public int TimeOut = 30;
-    
+
         private UdpConnection _connection;
 
         public Dictionary<int, Client> ClientsById { get; } = new();
@@ -33,6 +36,7 @@ namespace Network
 
         public readonly Dictionary<Model.Network.PacketType, HandleMessageDelegate> onReceiveMessageHandlers = new();
         public Action<byte[], IPEndPoint> OnReceiveEvent;
+        private PacketProvider _packetProvider = new();
 
         /// <summary>
         /// When a new client connects to the server
@@ -45,7 +49,15 @@ namespace Network
         /// When started client is accepted by the server
         /// </summary>
         public event Action<int> onConnectionSuccessful = delegate { };
+
         public event Action<Model.Network.Impl.HandshakeResponseCodes> onConnectionError = delegate { };
+
+        protected override void Initialize()
+        {
+            base.Initialize();
+
+            _packetProvider.Initialize();
+        }
 
         private void Update()
         {
@@ -81,7 +93,7 @@ namespace Network
             _connection.OnException += HandleUpdConnectionException;
             LocalEndPoint = (IPEndPoint)_connection.LocalEndPoint;
 
-            var handShake = new SerializedHandshakeRequestPacket {Payload = nickName };
+            var handShake = new SerializedHandshakeRequestPacket { Payload = nickName };
             LocalClient = new Client(Client.InvalidId, Time.time, nickName);
             SendToServer(handShake.GetBytes(new Model.Network.Header(Client.InvalidId)));
         }
@@ -110,7 +122,7 @@ namespace Network
                 newClient = default;
                 return false;
             }
-        
+
             var newId = ClientsById.Any()
                             ? ClientsById.Keys.Max() + 1
                             : 0;
@@ -141,15 +153,12 @@ namespace Network
                 return;
             }
 
-            //TODO: Move to Initialize
-            var packetProvider = new PacketProvider();
-            packetProvider.Initialize();
-            if (!packetProvider.TryGetType(header.TypeGroup, header.TypeId, out var type))
+            if (!_packetProvider.TryGetType(header.TypeGroup, header.TypeId, out var type))
             {
-                Debug.LogError($"{name}: Couldn't retrieve {nameof(type)} from {nameof(packetProvider)}!" +
+                Debug.LogError($"{name}: Couldn't retrieve {nameof(type)} from {nameof(_packetProvider)}!" +
                                $"\nHeader was: {header.TypeGroup} ({header.TypeId})");
             }
-            
+
             switch (messageType_OBS)
             {
                 case Model.Network.PacketType.Invalid:
@@ -171,6 +180,7 @@ namespace Network
                                        $"\nThis is not allowed!");
                         break;
                     }
+
                     HandleHandshakeResponseAsClient(data, ip);
                     break;
                 }
@@ -186,6 +196,7 @@ namespace Network
                     {
                         TryAddClient(clientId, nickname);
                     }
+
                     break;
                 }
                 default:
@@ -200,20 +211,22 @@ namespace Network
                     if (flags_OBS.HasFlag(Model.Network.PacketFlags.IsSerialized))
                     {
                         var clientId = Packet.ReadClientId(data);
-                        if(clientId == Client.InvalidId)
+                        if (clientId == Client.InvalidId)
                         {
                             Debug.LogError($"{name}: {nameof(clientId)} is invalid!");
                             break;
                         }
-                        if(!ClientsById.TryGetValue(clientId, out var client))
+
+                        if (!ClientsById.TryGetValue(clientId, out var client))
                         {
                             Debug.LogError($"{name}: Client was not added!");
                             break;
                         }
+
                         var messageCount = client.GetMessageId(messageType_OBS);
                         var messageId = SerializedPacket.ReadMessageId(data);
                         var isNewerThanLatestProcessedMessage = messageCount < messageId;
-                        if(isNewerThanLatestProcessedMessage)
+                        if (isNewerThanLatestProcessedMessage)
                         {
                             client.SetMessageId(messageType_OBS, messageCount);
                             //TODO: To Server
@@ -235,6 +248,7 @@ namespace Network
                             ProcessMessage(data, messageType_OBS);
                         OnReceiveEvent?.Invoke(data, ip);
                     }
+
                     break;
                 }
             }
@@ -242,7 +256,7 @@ namespace Network
 
         private void ProcessMessage(byte[] data, Model.Network.PacketType packetTypeObs)
         {
-            if(onReceiveMessageHandlers.TryGetValue(packetTypeObs, out var handler))
+            if (onReceiveMessageHandlers.TryGetValue(packetTypeObs, out var handler))
                 handler?.Invoke(packetTypeObs, data);
         }
 
@@ -258,13 +272,18 @@ namespace Network
             if (ClientsById.Values.Any(client => client.Nickname == request.Payload))
             {
                 Debug.LogWarning($"{name}: Rejecting client with ip {ip.Address}({ip.Port}).\tReason: {Model.Network.Impl.HandshakeResponseCodes.DuplicatedNickname}");
-                var response = new HandshakeResponsePacket {Payload = (Model.Network.Impl.HandshakeResponseCodes.DuplicatedNickname, Client.InvalidId)};
+                var response = new HandshakeResponsePacket
+                               {
+                                   Payload = (Model.Network.Impl.HandshakeResponseCodes.DuplicatedNickname,
+                                              Client.InvalidId)
+                               };
                 var refusedConnectionData = response.GetBytes(new Model.Network.Header(LocalClient.ID));
                 _connection.Send(refusedConnectionData, ip);
             }
-            else if(TryAddClientAsServer(ip, out var client, request.Payload))
+            else if (TryAddClientAsServer(ip, out var client, request.Payload))
             {
-                var response = new HandshakeResponsePacket {Payload = (Model.Network.Impl.HandshakeResponseCodes.Success, client.ID)};
+                var response = new HandshakeResponsePacket
+                               { Payload = (Model.Network.Impl.HandshakeResponseCodes.Success, client.ID) };
                 var acceptedConnectionData = response.GetBytes(new Model.Network.Header(LocalClient.ID));
                 _connection.Send(acceptedConnectionData, ip);
                 SendUpdatedClientList();
@@ -277,7 +296,8 @@ namespace Network
 
         private void SendUpdatedClientList()
         {
-            var message = new ClientListUpdatePacket { Payload = ClientsById.Select(pair => (pair.Value.ID, pair.Value.Nickname)).ToArray() };
+            var message = new ClientListUpdatePacket
+                          { Payload = ClientsById.Select(pair => (pair.Value.ID, pair.Value.Nickname)).ToArray() };
             Broadcast(message.GetBytes(new Model.Network.Header(LocalClient.ID)));
         }
 

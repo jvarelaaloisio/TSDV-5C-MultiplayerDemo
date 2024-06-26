@@ -41,6 +41,7 @@ namespace Model.Network.Connections
 
             this._receiver = receiver;
 
+            //TODO: Add new class with ReceiveAsync
             _udpClient.BeginReceive(OnReceive, null);
         }
 
